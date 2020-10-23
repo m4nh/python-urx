@@ -10,6 +10,7 @@ import collections
 
 from urx import urrtmon
 from urx import ursecmon
+import math3d as m3d
 
 __author__ = "Olivier Roulet-Dubonnet"
 __copyright__ = "Copyright 2011-2015, Sintef Raufoss Manufacturing"
@@ -85,6 +86,23 @@ class URRobot(object):
         """
         self.logger.info("Sending program: " + prog)
         self.secmon.send_program(prog)
+        
+    def get_tcp_pose(self, wait=True):
+        """
+        return measured pose in TCP
+        if wait==True, waits for next packet before returning
+        """
+        return self.rtmon.getTCF(wait)
+
+    def get_pose_faster(self, wait=False, _log=True):
+        """
+        get current transform from base to to tcp
+        """
+        pose = self.get_tcp_pose(wait)
+        trans = self.csys.inverse * m3d.Transform(pose)
+        if _log:
+            self.logger.debug("Returning pose to user: %s", trans.pose_vector)
+        return trans
 
     def get_tcp_force(self, wait=True):
         """
