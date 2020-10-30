@@ -202,7 +202,7 @@ class ParserUtils(object):
         returns None if none found
         """
         counter = 0
-        limit = 10
+        limit = 100
         while True:
             if len(data) >= 5:
                 psize, ptype = self.get_header(data)
