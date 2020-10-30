@@ -38,7 +38,8 @@ class URRobot(object):
         self.csys = None
 
         self.logger.debug("Opening secondary monitor socket")
-        self.secmon = ursecmon.SecondaryMonitor(self.host)  # data from robot at 10Hz
+        self.secmon = ursecmon.SecondaryMonitor(
+            self.host)  # data from robot at 10Hz
 
         self.rtmon = None
         if use_rt:
@@ -48,8 +49,6 @@ class URRobot(object):
         self.joinEpsilon = 0.01
         # It seems URScript is  limited in the character length of floats it accepts
         self.max_float_length = 6  # FIXME: check max length!!!
-
-        self.secmon.wait()  # make sure we get data from robot before letting clients access our methods
 
     def __repr__(self):
         return "Robot Object (IP=%s, state=%s)" % (self.host, self.secmon.get_all_data()["RobotModeData"])
@@ -86,23 +85,6 @@ class URRobot(object):
         """
         self.logger.info("Sending program: " + prog)
         self.secmon.send_program(prog)
-        
-    def get_tcp_pose(self, wait=True):
-        """
-        return measured pose in TCP
-        if wait==True, waits for next packet before returning
-        """
-        return self.rtmon.getTCF(wait)
-
-    def get_pose_faster(self, wait=False, _log=True):
-        """
-        get current transform from base to to tcp
-        """
-        pose = self.get_tcp_pose(wait)
-        trans = self.csys.inverse * m3d.Transform(pose)
-        if _log:
-            self.logger.debug("Returning pose to user: %s", trans.pose_vector)
-        return trans
 
     def get_tcp_force(self, wait=True):
         """
@@ -224,7 +206,8 @@ class URRobot(object):
         'threshold' we return.
         if threshold is not reached within timeout, an exception is raised
         """
-        self.logger.debug("Waiting for move completion using threshold %s and target %s", threshold, target)
+        self.logger.debug(
+            "Waiting for move completion using threshold %s and target %s", threshold, target)
         start_dist = self._get_dist(target, joints)
         if threshold is None:
             threshold = start_dist * 0.8
@@ -236,14 +219,17 @@ class URRobot(object):
             if not self.is_running():
                 raise RobotException("Robot stopped")
             dist = self._get_dist(target, joints)
-            self.logger.debug("distance to target is: %s, target dist is %s", dist, threshold)
+            self.logger.debug(
+                "distance to target is: %s, target dist is %s", dist, threshold)
             if not self.secmon.is_program_running():
                 if dist < threshold:
-                    self.logger.debug("we are threshold(%s) close to target, move has ended", threshold)
+                    self.logger.debug(
+                        "we are threshold(%s) close to target, move has ended", threshold)
                     return
                 count += 1
                 if count > timeout * 10:
-                    raise RobotException("Goal not reached but no program has been running for {} seconds. dist is {}, threshold is {}, target is {}, current pose is {}".format(timeout, dist, threshold, target, URRobot.getl(self)))
+                    raise RobotException("Goal not reached but no program has been running for {} seconds. dist is {}, threshold is {}, target is {}, current pose is {}".format(
+                        timeout, dist, threshold, target, URRobot.getl(self)))
             else:
                 count = 0
 
@@ -340,9 +326,13 @@ class URRobot(object):
         """
         get TCP position
         """
-        pose = self.secmon.get_cartesian_info(wait)
-        if pose:
-            pose = [pose["X"], pose["Y"], pose["Z"], pose["Rx"], pose["Ry"], pose["Rz"]]
+        if self.rtmon:
+            pose = self.rtmon.getTCF(wait)
+        else:
+            pose = self.secmon.get_cartesian_info(wait)
+            if pose:
+                pose = [pose["X"], pose["Y"], pose["Z"],
+                        pose["Rx"], pose["Ry"], pose["Rz"]]
         if _log:
             self.logger.debug("Received pose from robot: %s", pose)
         return pose
@@ -354,7 +344,8 @@ class URRobot(object):
         """
         pose_via = [round(i, self.max_float_length) for i in pose_via]
         pose_to = [round(i, self.max_float_length) for i in pose_to]
-        prog = "movec(p%s, p%s, a=%s, v=%s, r=%s)" % (pose_via, pose_to, acc, vel, "0")
+        prog = "movec(p%s, p%s, a=%s, v=%s, r=%s)" % (
+            pose_via, pose_to, acc, vel, "0")
         self.send_program(prog)
         if wait:
             self._wait_for_move(pose_to, threshold=threshold)
@@ -369,7 +360,7 @@ class URRobot(object):
         to robot make the robot stop
         """
         return URRobot.movexs(self, "movej", joint_positions_list, acc, vel, radius,
-                           wait, threshold=threshold)
+                              wait, threshold=threshold)
 
     def movels(self, pose_list, acc=0.01, vel=0.01, radius=0.01,
                wait=True, threshold=None):
@@ -430,9 +421,11 @@ class URRobot(object):
         self.send_program(prog)
         if wait:
             if command == 'movel':
-                self._wait_for_move(target=pose_list[-1], threshold=threshold, joints=False)
+                self._wait_for_move(
+                    target=pose_list[-1], threshold=threshold, joints=False)
             elif command == 'movej':
-                self._wait_for_move(target=pose_list[-1], threshold=threshold, joints=True)                
+                self._wait_for_move(
+                    target=pose_list[-1], threshold=threshold, joints=True)
             return self.getl()
 
     def stopl(self, acc=0.5):
@@ -461,7 +454,8 @@ class URRobot(object):
         Freedrive will timeout at 60 seconds.
         """
         if val:
-            self.send_program("def myProg():\n\tfreedrive_mode()\n\tsleep({})\nend".format(timeout))
+            self.send_program(
+                "def myProg():\n\tfreedrive_mode()\n\tsleep({})\nend".format(timeout))
         else:
             # This is a non-existant program, but running it will stop freedrive
             self.send_program("def myProg():\n\tend_freedrive_mode()\nend")
@@ -479,7 +473,8 @@ class URRobot(object):
         """
         if not self.rtmon:
             self.logger.info("Opening real-time monitor socket")
-            self.rtmon = urrtmon.URRTMonitor(self.host)  # som information is only available on rt interface
+            # som information is only available on rt interface
+            self.rtmon = urrtmon.URRTMonitor(self.host)
             self.rtmon.start()
         self.rtmon.set_csys(self.csys)
         return self.rtmon
